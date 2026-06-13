@@ -1,0 +1,112 @@
+# ══════════════════════════════════════════════════════════
+# WHY THIS PLAYBOOK?
+#
+# Your RDS instances, MSK brokers, and ElastiCache cluster all
+# live in PRIVATE subnets (no public IP, not internet-reachable
+# — by design, for security). But sometimes a human needs to:
+#   - Run `psql` to inspect a database directly
+#   - Run `kubectl` to debug pods in the EKS cluster
+#   - Check Kafka topics with kafka console tools
+#
+# A "bastion host" is one small EC2 instance in a PUBLIC
+# subnet that you SSH into, which THEN has network access to
+# the private subnet resources. This playbook configures that
+# bastion with all the tools needed once it exists.
+#
+# HOW TO USE:
+#   1. Launch a small EC2 instance (t3.micro) in a public
+#      subnet — either manually in AWS Console, or add an
+#      aws_instance resource to terraform later.
+#   2. Add its public IP to inventory/hosts.ini under [bastion]
+#   3. Run:
+#        ansible-playbook -i inventory/hosts.ini playbooks/bastion-setup.yml
+# ══════════════════════════════════════════════════════════
+
+- name: Configure ShopSphere bastion host
+  hosts: bastion
+  become: true  # run tasks with sudo
+
+  vars:
+    kubectl_version: "v1.30.0"
+    helm_version: "v3.14.4"
+
+  tasks:
+    # ── System update ───────────────────────────────────
+    - name: Update apt package cache
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install base packages
+      apt:
+        name:
+          - unzip
+          - curl
+          - postgresql-client   # gives us `psql` to connect to RDS
+          - jq                  # parse JSON output from AWS CLI / kubectl
+        state: present
+
+    # ── AWS CLI v2 ───────────────────────────────────────
+    - name: Download AWS CLI v2 installer
+      get_url:
+        url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+        dest: /tmp/awscliv2.zip
+
+    - name: Unzip AWS CLI installer
+      unarchive:
+        src: /tmp/awscliv2.zip
+        dest: /tmp
+        remote_src: true
+
+    - name: Install AWS CLI v2
+      command: /tmp/aws/install
+      args:
+        creates: /usr/local/bin/aws
+
+    # ── kubectl ──────────────────────────────────────────
+    # Lets the bastion run `kubectl get pods`, `kubectl logs`,
+    # etc. against the EKS cluster created by Terraform.
+    - name: Download kubectl binary
+      get_url:
+        url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
+        dest: /usr/local/bin/kubectl
+        mode: "0755"
+
+    # ── Helm ─────────────────────────────────────────────
+    # Used in the next phase to install your 8 microservices
+    # onto EKS via Helm charts.
+    - name: Download Helm install script
+      get_url:
+        url: "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"
+        dest: /tmp/get-helm-3.sh
+        mode: "0755"
+
+    - name: Run Helm install script
+      command: /tmp/get-helm-3.sh
+      args:
+        creates: /usr/local/bin/helm
+
+    # ── kubeconfig ───────────────────────────────────────
+    # Connects kubectl/helm to YOUR specific EKS cluster.
+    # Requires the bastion's IAM role to have EKS describe
+    # permissions (attach via instance profile).
+    - name: Update kubeconfig for ShopSphere EKS cluster
+      command: >
+        aws eks update-kubeconfig
+        --region us-east-2
+        --name shopsphere-dev
+      become: false
+      environment:
+        HOME: "/home/{{ ansible_user }}"
+
+    - name: Confirm tool versions
+      shell: |
+        echo "AWS CLI: $(aws --version)"
+        echo "kubectl: $(kubectl version --client --short)"
+        echo "helm: $(helm version --short)"
+      register: tool_versions
+      changed_when: false
+
+    - name: Show installed tool versions
+      debug:
+        var: tool_versions.stdout_lines
