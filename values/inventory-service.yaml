@@ -1,0 +1,36 @@
+# ══════════════════════════════════════════════════════════
+# inventory-service — :8085
+#
+# Uses Redis distributed locks (setIfAbsent pattern). In Docker:
+#   spring.data.redis.host: redis
+# In Kubernetes:
+#   spring.data.redis.host: ${REDIS_HOST}
+# which comes from the ElastiCache module's output via the
+# shopsphere-connections Secret.
+# ══════════════════════════════════════════════════════════
+nameOverride: inventory-service
+
+image:
+  repository: ghcr.io/shopsphere-platform/inventory-service
+  tag: latest
+
+containerPort: 8085
+
+service:
+  type: ClusterIP
+  port: 8085
+
+env:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  SPRING_DATASOURCE_USERNAME: "postgres"
+
+envFromSecretRefs:
+  - shopsphere-connections   # INVENTORY_DB_HOST, REDIS_HOST, KAFKA_BOOTSTRAP_SERVERS
+
+resources:
+  requests:
+    cpu: "150m"
+    memory: "384Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"

@@ -1,0 +1,47 @@
+# ══════════════════════════════════════════════════════════
+# WHY THIS FILE?
+# This is the DEFAULT settings for the chart. Each service's
+# values-<service>.yaml (in ../../values/) OVERRIDES only the
+# fields that differ — image, port, env vars, etc.
+#
+# Helm merges: default values.yaml + your -f values-X.yaml
+# ══════════════════════════════════════════════════════════
+
+# Name shown in `kubectl get pods` etc. Overridden per-service.
+nameOverride: ""
+
+replicaCount: 1
+
+image:
+  repository: "" # e.g. 123456789.dkr.ecr.us-east-2.amazonaws.com/shopsphere/product-service
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Container port the app listens on (8081 for auth-service, 5173 for storefront, etc.)
+containerPort: 8080
+
+service:
+  type: ClusterIP   # internal-only by default; api-gateway and storefront override to LoadBalancer
+  port: 80          # port other pods use to reach this service
+
+# Resource limits — small defaults suitable for t3.medium nodes
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+# Plain (non-secret) environment variables, e.g. SPRING_PROFILES_ACTIVE
+env: {}
+
+# Names of Secrets/ConfigMaps to load ALL keys from as env vars
+# (this is how the Ansible-generated "shopsphere-connections"
+# secret reaches every pod — see ../../../ansible/templates/k8s-secret.yml.j2)
+envFromSecretRefs: []
+envFromConfigMapRefs: []
+
+# Spring Boot Actuator health check path. React frontend
+# overrides this to "/" since it has no actuator.
+healthCheckPath: /actuator/health

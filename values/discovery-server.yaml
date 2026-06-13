@@ -1,0 +1,39 @@
+# ══════════════════════════════════════════════════════════
+# discovery-server (Eureka) — :8761
+#
+# In Docker Compose, every other service had:
+#   eureka.client.service-url.defaultZone: http://discovery-server:8761/eureka/
+#
+# In Kubernetes, "discovery-server" still works as a hostname
+# because of the Service we create below — same name, just
+# resolved by Kubernetes DNS instead of Docker's network.
+#
+# Note: in a "real" cloud-native setup, Eureka is often
+# REPLACED by Kubernetes' own service discovery (every
+# Service already gets a DNS name for free). We keep Eureka
+# here to match your existing Spring Cloud code without
+# rewrites — a valid "lift and shift" decision worth
+# mentioning in interviews.
+# ══════════════════════════════════════════════════════════
+nameOverride: discovery-server
+
+image:
+  repository: ghcr.io/shopsphere-platform/discovery-server
+  tag: latest
+
+containerPort: 8761
+
+service:
+  type: ClusterIP
+  port: 8761
+
+env:
+  SPRING_PROFILES_ACTIVE: "k8s"
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "300m"
+    memory: "384Mi"

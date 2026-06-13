@@ -1,0 +1,29 @@
+# ══════════════════════════════════════════════════════════
+# WHY ONE CHART FOR ALL SERVICES?
+#
+# All 9 things we're deploying (8 Spring Boot services +
+# React frontend) have the SAME shape:
+#   - 1 Deployment (runs N copies of a container)
+#   - 1 Service (gives it a stable internal address)
+#   - Environment variables from a ConfigMap/Secret
+#   - A health check endpoint
+#
+# Rather than copy-pasting near-identical YAML 9 times,
+# we write ONE chart with placeholders (templates/), and
+# create 9 small values-*.yaml files (in ../values/) that
+# fill in: image name, port, replica count, env vars.
+#
+# Deploy each service like:
+#   helm install product-service ./helm/microservice \
+#     -f ../values/product-service.yaml -n shopsphere
+#
+# This mirrors exactly what docker-compose.yml did with
+# "build: ./product-service" + environment: {...} for each
+# service — just on Kubernetes instead of Docker Compose.
+# ══════════════════════════════════════════════════════════
+apiVersion: v2
+name: microservice
+description: Generic Helm chart for a ShopSphere microservice (Spring Boot or React)
+type: application
+version: 0.1.0
+appVersion: "1.0"

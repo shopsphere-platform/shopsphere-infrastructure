@@ -1,0 +1,30 @@
+# ══════════════════════════════════════════════════════════
+# product-service — :8082
+# Serves the 8 seeded watches via /api/products
+# ══════════════════════════════════════════════════════════
+nameOverride: product-service
+
+image:
+  repository: ghcr.io/shopsphere-platform/product-service
+  tag: latest
+
+containerPort: 8082
+
+service:
+  type: ClusterIP
+  port: 8082
+
+env:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  SPRING_DATASOURCE_USERNAME: "postgres"
+
+envFromSecretRefs:
+  - shopsphere-connections   # PRODUCTS_DB_HOST, DB_PASSWORD
+
+resources:
+  requests:
+    cpu: "150m"
+    memory: "384Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"

@@ -1,0 +1,36 @@
+# ══════════════════════════════════════════════════════════
+# order-service — :8083
+#
+# Publishes "order-created" to Kafka (now MSK). In Docker:
+#   spring.kafka.bootstrap-servers: kafka:29092
+# In Kubernetes:
+#   spring.kafka.bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+# which comes from the MSK module's output via the
+# shopsphere-connections Secret.
+# ══════════════════════════════════════════════════════════
+nameOverride: order-service
+
+image:
+  repository: ghcr.io/shopsphere-platform/order-service
+  tag: latest
+
+containerPort: 8083
+
+service:
+  type: ClusterIP
+  port: 8083
+
+env:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  SPRING_DATASOURCE_USERNAME: "postgres"
+
+envFromSecretRefs:
+  - shopsphere-connections   # ORDERS_DB_HOST, KAFKA_BOOTSTRAP_SERVERS
+
+resources:
+  requests:
+    cpu: "150m"
+    memory: "384Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"

@@ -1,0 +1,15 @@
+# ══════════════════════════════════════════════════════════
+# WHY A NAMESPACE?
+# A namespace groups all ShopSphere resources together,
+# separate from other things that might run in the same EKS
+# cluster (e.g. monitoring tools, other projects). It also
+# lets you run `kubectl get pods -n shopsphere` to see
+# everything at once, and delete everything with
+# `kubectl delete namespace shopsphere` during cleanup.
+# ══════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shopsphere
+  labels:
+    app: shopsphere

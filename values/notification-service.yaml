@@ -1,0 +1,30 @@
+# ══════════════════════════════════════════════════════════
+# notification-service — :8086
+# Kafka consumer (order-created, payment-completed) → SendGrid email
+# ══════════════════════════════════════════════════════════
+nameOverride: notification-service
+
+image:
+  repository: ghcr.io/shopsphere-platform/notification-service
+  tag: latest
+
+containerPort: 8086
+
+service:
+  type: ClusterIP
+  port: 8086
+
+env:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  SPRING_DATASOURCE_USERNAME: "postgres"
+
+envFromSecretRefs:
+  - shopsphere-connections   # NOTIFICATIONS_DB_HOST, KAFKA_BOOTSTRAP_SERVERS, SENDGRID_API_KEY
+
+resources:
+  requests:
+    cpu: "150m"
+    memory: "384Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"

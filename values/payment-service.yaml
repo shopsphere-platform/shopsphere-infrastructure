@@ -1,0 +1,31 @@
+# ══════════════════════════════════════════════════════════
+# payment-service — :8084
+# Stripe integration + Kafka producer/consumer
+# (payment-completed, payment-failed topics)
+# ══════════════════════════════════════════════════════════
+nameOverride: payment-service
+
+image:
+  repository: ghcr.io/shopsphere-platform/payment-service
+  tag: latest
+
+containerPort: 8084
+
+service:
+  type: ClusterIP
+  port: 8084
+
+env:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  SPRING_DATASOURCE_USERNAME: "postgres"
+
+envFromSecretRefs:
+  - shopsphere-connections   # PAYMENTS_DB_HOST, KAFKA_BOOTSTRAP_SERVERS, STRIPE_SECRET_KEY
+
+resources:
+  requests:
+    cpu: "150m"
+    memory: "384Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"

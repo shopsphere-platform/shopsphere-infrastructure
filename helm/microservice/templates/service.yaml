@@ -1,0 +1,39 @@
+# ══════════════════════════════════════════════════════════
+# WHY THIS FILE?
+#
+# A Kubernetes Service gives the Deployment's pods a STABLE
+# network name, even as individual pods are replaced.
+#
+# This is the EXACT equivalent of Docker Compose's "service
+# name = hostname" magic. Remember the api-gateway bug where
+# we had to change:
+#   uri: http://localhost:8082   →   uri: http://product-service:8082
+#
+# In Kubernetes, the same idea applies: api-gateway will call
+# http://product-service.shopsphere.svc.cluster.local:80
+# (or just "product-service" within the same namespace) —
+# Kubernetes' internal DNS resolves that to whichever pod(s)
+# are currently running, automatically load-balancing across
+# replicas.
+#
+# service.type:
+#   ClusterIP    → internal only (6 of 8 services, + databases)
+#   LoadBalancer → AWS creates a real external load balancer
+#                  (api-gateway and storefront use this, so
+#                   the internet can reach them)
+# ══════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "microservice.fullname" . }}
+  namespace: shopsphere
+  labels:
+    {{- include "microservice.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: {{ include "microservice.fullname" . }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.containerPort }}
+      protocol: TCP

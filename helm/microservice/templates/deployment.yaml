@@ -1,0 +1,89 @@
+# ══════════════════════════════════════════════════════════
+# WHY THIS FILE?
+#
+# A Deployment tells Kubernetes: "run N copies of this
+# container, and if one crashes, start a replacement
+# automatically." This is the Kubernetes equivalent of:
+#
+#   docker-compose.yml:
+#     auth-service:
+#       build: ./auth-service
+#       ports: ["8081:8081"]
+#       environment: { ... }
+#       restart: unless-stopped
+#
+# - replicaCount → "how many copies" (Docker Compose only
+#   ever ran 1; Kubernetes can run many for scaling)
+# - restart: unless-stopped → Kubernetes does this by default
+#   for ALL pods, no config needed
+# - environment: {...} → envFrom (Secret/ConfigMap) below
+# ══════════════════════════════════════════════════════════
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "microservice.fullname" . }}
+  namespace: shopsphere
+  labels:
+    {{- include "microservice.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "microservice.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "microservice.fullname" . }}
+    spec:
+      containers:
+        - name: {{ include "microservice.fullname" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+            - containerPort: {{ .Values.containerPort }}
+
+          # ── Environment variables ──────────────────────
+          {{- if .Values.env }}
+          env:
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+
+          # Loads ALL keys from named Secrets/ConfigMaps as
+          # env vars — e.g. AUTH_DB_HOST, KAFKA_BOOTSTRAP_SERVERS
+          # from the Ansible-generated "shopsphere-connections" Secret
+          {{- if or .Values.envFromSecretRefs .Values.envFromConfigMapRefs }}
+          envFrom:
+            {{- range .Values.envFromSecretRefs }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
+            {{- range .Values.envFromConfigMapRefs }}
+            - configMapRef:
+                name: {{ . }}
+            {{- end }}
+          {{- end }}
+
+          # ── Health checks ───────────────────────────────
+          # Kubernetes equivalent of Docker's HEALTHCHECK —
+          # restarts the pod if it stops responding, and
+          # won't send traffic until it's ready.
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.healthCheckPath }}
+              port: {{ .Values.containerPort }}
+            initialDelaySeconds: 40
+            periodSeconds: 15
+
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.healthCheckPath }}
+              port: {{ .Values.containerPort }}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

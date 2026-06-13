@@ -1,0 +1,39 @@
+# ══════════════════════════════════════════════════════════
+# storefront — React frontend, served as static files via Nginx
+#
+# Unlike Docker dev mode (npm run dev on :5173), production
+# React is built into static HTML/JS/CSS and served by a
+# lightweight web server. The Dockerfile for this would be:
+#
+#   FROM node:20 AS build
+#   ...npm run build...
+#   FROM nginx:alpine
+#   COPY --from=build /app/dist /usr/share/nginx/html
+#
+# It calls the api-gateway's LoadBalancer URL (set at build
+# time via VITE_API_URL env var), not "localhost:8080".
+#
+# Gets a LoadBalancer too — this is your public website URL.
+# ══════════════════════════════════════════════════════════
+nameOverride: storefront
+
+image:
+  repository: ghcr.io/shopsphere-platform/storefront
+  tag: latest
+
+containerPort: 80   # nginx default
+
+service:
+  type: LoadBalancer
+  port: 80
+
+# React/Nginx has no /actuator/health — use root path
+healthCheckPath: /
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "300m"
+    memory: "256Mi"

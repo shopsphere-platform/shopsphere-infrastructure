@@ -1,0 +1,37 @@
+# ══════════════════════════════════════════════════════════
+# auth-service — :8081
+#
+# Docker Compose env override was:
+#   SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/shopsphere_auth
+#
+# In production, AUTH_DB_HOST comes from the
+# "shopsphere-connections" Secret (= the real RDS endpoint
+# Terraform created). application.yml should reference it as:
+#   spring.datasource.url: jdbc:postgresql://${AUTH_DB_HOST}/shopsphere_auth
+# ══════════════════════════════════════════════════════════
+nameOverride: auth-service
+
+image:
+  repository: ghcr.io/shopsphere-platform/auth-service
+  tag: latest
+
+containerPort: 8081
+
+service:
+  type: ClusterIP
+  port: 8081
+
+env:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  SPRING_DATASOURCE_USERNAME: "postgres"
+
+envFromSecretRefs:
+  - shopsphere-connections   # AUTH_DB_HOST, DB_PASSWORD, JWT_SECRET
+
+resources:
+  requests:
+    cpu: "150m"
+    memory: "384Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
