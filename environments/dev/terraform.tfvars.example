@@ -1,0 +1,16 @@
+# ══════════════════════════════════════════════════════════
+# HOW TO USE THIS FILE
+#
+# 1. Copy this file:  cp terraform.tfvars.example terraform.tfvars
+# 2. Edit terraform.tfvars with real values
+# 3. terraform.tfvars is in .gitignore — it never gets
+#    committed to GitHub (it contains the DB password)
+# ══════════════════════════════════════════════════════════
+
+aws_region   = "us-east-2"
+project_name = "shopsphere"
+environment  = "dev"
+
+# Choose a strong password — this becomes the master password
+# for all 6 RDS Postgres instances
+db_password = "CHANGE_ME_BEFORE_APPLY"
