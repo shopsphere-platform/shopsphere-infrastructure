@@ -1,0 +1,27 @@
+# Local .terraform directories (downloaded providers)
+**/.terraform/*
+
+# Terraform state files — contain sensitive data, and would
+# conflict if multiple people apply locally. Use S3 backend
+# for team use (see provider.tf).
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Real variable values — contains db_password, never commit
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI configuration
+.terraformrc
+terraform.rc
