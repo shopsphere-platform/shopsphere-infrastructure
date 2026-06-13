@@ -1,98 +1,41 @@
-# ShopSphere — Kubernetes / Helm
+# ShopSphere — Infrastructure
 
-## Architecture
+Complete Infrastructure-as-Code for ShopSphere: Terraform provisions AWS resources, Ansible bridges Terraform outputs into Kubernetes, and Helm deploys all 9 components.
 
-```
-                         ┌─────────────────────────────────┐
-   Internet ────────────▶│  storefront (LoadBalancer)       │
-                         │  React + Nginx                   │
-                         └───────────────┬───────────────────┘
-                                          │ calls
-                         ┌───────────────▼───────────────────┐
-   Internet ────────────▶│  api-gateway (LoadBalancer)       │
-                         └───────────────┬───────────────────┘
-                                          │ routes to (ClusterIP, internal)
-        ┌──────────┬──────────┬──────────┼──────────┬──────────────┐
-        ▼          ▼          ▼          ▼          ▼              ▼
-   auth-service product- order-   payment- inventory- notification-
-               service   service  service  service    service
-        │          │          │          │          │              │
-        └──────────┴──────────┴────┬─────┴──────────┴──────────────┘
-                                    │
-                          discovery-server (Eureka)
-                                    │
-                    ┌───────────────┼────────────────┐
-                    ▼               ▼                ▼
-              RDS (x6, via       MSK (Kafka)    ElastiCache (Redis)
-              shopsphere-connections Secret)
-```
+---
 
-## One chart, nine deployments
+# Terraform
 
-`helm/microservice/` is a single reusable chart (Deployment + Service +
-health checks). `values/*.yaml` — one per service — fill in the
-image, port, and env vars that differ. This mirrors how
-docker-compose.yml had one repeated shape (`build:`, `ports:`,
-`environment:`) for each service.
-
-## Prerequisites
-
-1. **Terraform applied** (or at least the RDS/MSK/ElastiCache modules) —
-   so real endpoints exist
-2. **Ansible secrets generated**:
-   ```cmd
-   cd ansible
-   ansible-playbook -i inventory/hosts.ini playbooks/generate-k8s-secrets.yml -e "db_password=YourPassword"
-   ```
-   This writes `kubernetes/base/secrets.generated.yaml`
-3. **Docker images pushed** to a registry (GitHub Container Registry,
-   ECR, etc.) — each `values/*.yaml` currently points at
-   `ghcr.io/shopsphere-platform/<service>:latest` as a placeholder.
-   Your existing Dockerfiles (from docker-compose) work as-is for this —
-   just `docker build` + `docker push` to the registry.
-4. **kubectl configured** for your EKS cluster:
-   ```cmd
-   aws eks update-kubeconfig --region us-east-2 --name shopsphere-dev
-   ```
-
-## Deploy order
+| Module | AWS Resources | Replaces |
+|---|---|---|
+| `vpc` | VPC, subnets, NAT Gateway | Docker network |
+| `eks` | EKS cluster + node group + IAM | Docker host |
+| `rds` | 6x RDS Postgres | 6x postgres containers |
+| `msk` | Managed Kafka cluster | kafka + zookeeper containers |
+| `elasticache` | Managed Redis | redis container |
 
 ```cmd
-kubectl apply -f namespace.yaml
-kubectl apply -f base/secrets.generated.yaml
-cd values
-bash deploy-all.sh
+cd terraform/environments/dev
+terraform init
+terraform plan   # free, read-only
 ```
 
-## Useful commands
+---
+
+# Ansible
+
+| Playbook | Purpose |
+|---|---|
+| `bastion-setup.yml` | Install kubectl/helm/aws-cli on jump-box EC2 |
+| `generate-k8s-secrets.yml` | Read terraform outputs → generate Kubernetes Secret |
 
 ```cmd
-kubectl get pods -n shopsphere
-kubectl get svc -n shopsphere
-kubectl logs -f deployment/api-gateway -n shopsphere
-kubectl rollout restart deployment/product-service -n shopsphere
-helm uninstall product-service -n shopsphere
+cd ansible
+ansible-playbook -i inventory/hosts.ini playbooks/generate-k8s-secrets.yml -e "db_password=YourPassword"
 ```
 
-## application.yml changes needed for production
+---
 
-Each service's `application.yml` should read from environment
-variables (Spring does this automatically via relaxed binding):
+# Kubernetes / Helm
 
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://${PRODUCTS_DB_HOST}/shopsphere_products
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
-  data:
-    redis:
-      host: ${REDIS_HOST}
-```
-
-These env vars are injected by `envFromSecretRefs: [shopsphere-connections]`
-in each values file — same `${VAR}` pattern Spring Boot already
-understands, just sourced from Kubernetes instead of docker-compose's
-`environment:` block.
+One reusable chart (`helm/microservice/`) deployed 9 times with different `values/*.yaml` files.
